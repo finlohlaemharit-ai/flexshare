@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
+    <title>LIFF - LINE Front-end Framework</title>
+</head>
+<body>
+    <script src="https://static.line-scdn.net/liff/edge/versions/2.5.0/sdk.js"></script>
+
+    <script>
+        // ฟังก์ชันหลักสำหรับการทำงานของ LIFF
+        async function main() {
+            try {
+                // 2. เริ่มต้น (Initialize) LIFF โดยใส่ LIFF ID ของคุณ
+                await liff.init({ liffId: "1653575653-0mBz0yAJ" });
+
+                // 3. เรียกใช้ Share Target Picker เพื่อให้ผู้ใช้เลือกผู้รับ
+                await liff.shareTargetPicker([
+                    {
+                        "type": "flex",
+                        "altText": "Flex Message from Share Target Picker",
+                        "contents": {
+                            // *** ใส่ JSON ของ Flex Message ที่ต้องการแชร์ที่นี่ ***
+                            // (Flex Message JSON ที่คุณสร้างไว้จาก Simulator)
+                        }
+                    }
+                ]);
+
+                // 4. ปิดหน้าต่าง LIFF หลังจากแชร์สำเร็จ
+                liff.closeWindow();
+            } catch (error) {
+                console.error("เกิดข้อผิดพลาดในการทำงานของ LIFF:", error);
+                // อาจเพิ่มโค้ดแจ้งเตือนผู้ใช้เมื่อเกิดข้อผิดพลาด
+            }
+        }
+
+        // เริ่มการทำงาน
+        main();
+    </script>
+</body>
+</html>
