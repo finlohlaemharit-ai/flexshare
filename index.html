@@ -7,13 +7,16 @@
     <!-- ใช้ Alert Custom แทน alert() -->
     <style>
         .custom-alert-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 9999;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 9999;
         }
         .custom-alert-box {
-            background: #fff; padding: 20px; border-radius: 10px; max-width: 80%; text-align: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            background: #fff; padding: 20px; border-radius: 10px; max-width: 80%;
+            text-align: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
         .custom-alert-box button {
-            margin-top: 15px; padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;
+            margin-top: 15px; padding: 10px 20px; background-color: #007bff;
+            color: white; border: none; border-radius: 5px; cursor: pointer;
         }
     </style>
 </head>
@@ -29,8 +32,7 @@
         const LIFF_ID = "1657584857-WRzPzB9g"; 
         
         // ⭐ 2. URL ของ GAS Web App (ต้องเป็น URL ที่ Deploy แล้ว)
-        // (นำ URL จาก GAS Web App Deployment ของคุณมาใส่ที่นี่)
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwBCifWgs3FMWX6U5ZxFTq5Vb190B9W6Vj9bAol07vTE9I8LZ3yR0lj1S7nntAHLQyJ8Q/exec'; 
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxYHWtdUbGgnRXXVhAxQnM6meYfvBFbonVQpFUOAuRjKkhCLrCCehMqxMmEVmPOV0u34g/exec'; 
 
         // ฟังก์ชัน Custom Alert แทน alert()
         function customAlert(message) {
@@ -38,7 +40,7 @@
             overlay.className = 'custom-alert-overlay';
             const box = document.createElement('div');
             box.className = 'custom-alert-box';
-            box.innerHTML = `<p>${message}</p><button onclick="this.closest('.custom-alert-overlay').remove()">ตกลง</button>`;
+            box.innerHTML = `<p style="white-space:pre-line">${message}</p><button onclick="this.closest('.custom-alert-overlay').remove()">ตกลง</button>`;
             overlay.appendChild(box);
             document.body.appendChild(overlay);
         }
@@ -60,7 +62,6 @@
             for (var i = 0; i < vars.length; i++) {
                 var pair = vars[i].split('=');
                 if (pair[0] && pair[1]) { 
-                    // ⭐ templateId คือ Key ที่เราจะใช้
                     params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
                 }
             }
@@ -70,28 +71,45 @@
         async function main() {
             let templateId = '';
             try {
+                document.getElementById('debug-info').innerText = 'กำลังเริ่มต้น LIFF...';
+
                 // 1. เริ่มต้น (Initialize) LIFF
                 await liff.init({ liffId: LIFF_ID });
+
+                // 1.1 ต้องเปิดผ่านแอป LINE เท่านั้น
+                if (!liff.isInClient()) {
+                    const msg = 'ฟังก์ชันแชร์ใช้ได้เฉพาะเมื่อเปิดในแอป LINE เท่านั้น\nกรุณากลับไปเปิดลิงก์นี้จากในห้องแชท LINE ครับ';
+                    document.getElementById('debug-info').innerText = msg;
+                    customAlert(msg);
+                    return;
+                }
+
+                // 1.2 ตรวจสอบว่า shareTargetPicker ใช้ได้ไหม
+                if (!liff.isApiAvailable('shareTargetPicker')) {
+                    const msg = 'อุปกรณ์หรือเวอร์ชัน LINE นี้ไม่รองรับ Share Target Picker\nกรุณาอัปเดตแอป LINE ให้เป็นเวอร์ชันล่าสุด แล้วลองใหม่อีกครั้งครับ';
+                    document.getElementById('debug-info').innerText = msg;
+                    customAlert(msg);
+                    return;
+                }
 
                 // 2. ดึง Template ID จาก URL (นี่คือ 'กุญแจ' ที่ GAS ส่งมา)
                 var params = getQueryParams();
                 templateId = params.templateId || ''; // ใช้ Key: templateId
 
                 if (!templateId) {
-                    throw new Error('ไม่พบ Template ID ใน URL (Template ID หายไป)');
+                    throw new Error('ไม่พบ Template ID ใน URL (templateId=...)');
                 }
                 
-                document.getElementById('debug-info').innerText = `Template ID ที่รับได้: ${templateId} กำลังดึง Flex JSON จาก Server...`;
+                document.getElementById('debug-info').innerText = `Template ID ที่รับได้: ${templateId}\nกำลังดึง Flex JSON จาก Server...`;
 
                 // 3. เรียก GAS Server เพื่อดึง Flex JSON
-                // Action: getTemplateFlex คือ Handler ที่เราเพิ่มใน GAS
-                const fetchUrl = `${GAS_WEB_APP_URL}?action=getTemplateFlex&templateId=${templateId}`;
+                const fetchUrl = `${GAS_WEB_APP_URL}?action=getTemplateFlex&templateId=${encodeURIComponent(templateId)}`;
                 const response = await fetch(fetchUrl);
 
                 // ตรวจสอบ HTTP Error
                 if (!response.ok) {
                     const errorText = await response.text(); 
-                    throw new Error(`GAS API Error: HTTP ${response.status}. Check CORS/Deployment.`);
+                    throw new Error(`GAS API Error: HTTP ${response.status}\nDetails: ${errorText.substring(0,200)}`);
                 }
 
                 // 4. รับ Flex JSON ทั้งก้อนกลับมา
@@ -106,26 +124,37 @@
                 
                 // 5. สร้าง Flex Message สำหรับ Share Target Picker
                 const finalFlexMessage = {
-                    "type": "flex",
-                    "altText": responseData.altText || "Flex Message for Sharing",
-                    "contents": responseData.contents // โค้ด Flex JSON ทั้งก้อนที่ดึงมาจาก Sheet
+                    type: "flex",
+                    altText: responseData.altText || "Flex Message for Sharing",
+                    contents: responseData.contents
                 };
 
-                // 6. เรียกใช้ Share Target Picker
-                document.getElementById('debug-info').innerText = `ดึงข้อมูลสำเร็จ! กำลังเปิดหน้าแชร์...`;
-                
-                // ⭐⭐ ใช้ Flex JSON ที่ดึงมา
-                await liff.shareTargetPicker([finalFlexMessage]);
+                document.getElementById('debug-info').innerText = `ดึงข้อมูลสำเร็จ!\nกำลังเปิดหน้าต่างแชร์...`;
 
-                // 7. ปิดหน้าต่าง LIFF
+                // 6. เรียกใช้ Share Target Picker
+                const result = await liff.shareTargetPicker([finalFlexMessage]);
+
+                // ถ้าผู้ใช้กดปิดโดยไม่แชร์ result จะเป็น null
+                if (result === null) {
+                    customAlert("ปิดหน้าต่างแชร์โดยไม่ได้ส่งข้อความครับ");
+                    // กรณีนี้จะปิดหน้าต่างให้เลย
+                    liff.closeWindow();
+                    return;
+                }
+
+                // 7. แชร์สำเร็จ
                 customAlert("แชร์ข้อความสำเร็จแล้ว!");
-                liff.closeWindow();
+                // ปิดหน้าต่างหลังจาก alert ถูกกดปิดสักพักเล็กน้อย
+                setTimeout(() => {
+                    liff.closeWindow();
+                }, 500);
+
             } catch (error) {
                 console.error("เกิดข้อผิดพลาดในการทำงานของ LIFF:", error);
-                const msg = `❌ เกิดข้อผิดพลาด: ${error.message}`;
+                const msg = `❌ เกิดข้อผิดพลาด:\n${error.message || error}`;
                 document.getElementById('debug-info').innerText = msg;
                 customAlert(msg);
-                liff.closeWindow();
+                // ❗ ไม่ปิดหน้าต่างทันที จะได้เห็น error / debug-info ชัด ๆ
             }
         }
 
