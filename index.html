@@ -4,64 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
     <title>LIFF Dynamic Flex Sharer</title>
-    <!-- ใช้ Alert Custom แทน alert() -->
+
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #000;
+        }
+
+        /* ฉากโหลดเต็มจอ */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at top, #001f3f 0, #000000 60%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        /* วงกลมหมุน */
+        .loader {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 6px solid rgba(255,255,255,0.2);
+            border-top-color: #00c300; /* สีเขียวโทน LINE */
+            animation: spin 1s linear infinite;
+        }
+
+        /* จุดกระพริบด้านล่าง เพิ่มความรู้สึกกำลังทำงาน */
+        .loading-dots {
+            margin-top: 16px;
+            width: 40px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.7);
+            opacity: 0.2;
+            animation: blink 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0.2; transform: scale(1); }
+            40% { opacity: 1; transform: scale(1.3); }
+        }
+
+        /* กล่อง alert แบบ custom */
         .custom-alert-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 9999;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
         }
         .custom-alert-box {
-            background: #fff; padding: 20px; border-radius: 10px; max-width: 80%;
-            text-align: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 80%;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
         .custom-alert-box button {
-            margin-top: 15px; padding: 10px 20px; background-color: #007bff;
-            color: white; border: none; border-radius: 5px; cursor: pointer;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* debug-info ซ่อนไว้ ใช้ดู log ถ้าต้องการ */
+        #debug-info {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>กำลังโหลดข้อมูล...</h1>
-    <p>กรุณารอสักครู่ (หากค้างนาน แสดงว่าเกิดปัญหาการเชื่อมต่อ)</p>
-    <p id="debug-info" style="color: red; font-weight: bold;"></p>
+    <!-- overlay โหลดหมุน ๆ -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loader"></div>
+        <div class="loading-dots">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+
+    <!-- debug ซ่อนไว้ ไม่ให้ลูกค้าเห็น -->
+    <p id="debug-info"></p>
     
     <script src="https://static.line-scdn.net/liff/edge/versions/2.5.0/sdk.js"></script>
 
     <script>
-        // ⭐ 1. CONFIG: LIFF ID ของคุณ (ต้องตรงกับที่ใช้ในปุ่มแชร์)
         const LIFF_ID = "1657584857-WRzPzB9g"; 
-        
-        // ⭐ 2. URL ของ GAS Web App (ต้องเป็น URL ที่ Deploy แล้ว)
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxYHWtdUbGgnRXXVhAxQnM6meYfvBFbonVQpFUOAuRjKkhCLrCCehMqxMmEVmPOV0u34g/exec'; 
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxYHWtdUbGgnRXXVhAxQnM6meYfvBFbonVQpFUOAuRjKkhCLrCCehMqxMmEVmPOV0u34g/exec";
 
-        // ฟังก์ชัน Custom Alert แทน alert()
         function customAlert(message) {
-            const overlay = document.createElement('div');
-            overlay.className = 'custom-alert-overlay';
-            const box = document.createElement('div');
-            box.className = 'custom-alert-box';
-            box.innerHTML = `<p style="white-space:pre-line">${message}</p><button onclick="this.closest('.custom-alert-overlay').remove()">ตกลง</button>`;
+            const overlay = document.createElement("div");
+            overlay.className = "custom-alert-overlay";
+            const box = document.createElement("div");
+            box.className = "custom-alert-box";
+            box.innerHTML =
+                `<p style="white-space:pre-line">${message}</p>` +
+                `<button onclick="this.closest('.custom-alert-overlay').remove()">ตกลง</button>`;
             overlay.appendChild(box);
             document.body.appendChild(overlay);
         }
-        
-        // ฟังก์ชันสำหรับแยก Query Parameter จาก URL (รองรับ liff.state)
+
         function getQueryParams() {
             var params = {};
-            var query = window.location.search.substring(1); 
-            
+            var query = window.location.search.substring(1);
+
             var liffStateMatch = query.match(/liff\.state=([^&]*)/);
             if (liffStateMatch) {
                 var liffStateQuery = decodeURIComponent(liffStateMatch[1]);
-                if (liffStateQuery.startsWith('?')) {
-                    query += '&' + liffStateQuery.substring(1);
+                if (liffStateQuery.startsWith("?")) {
+                    query += "&" + liffStateQuery.substring(1);
                 }
             }
 
-            var vars = query.split('&');
+            var vars = query.split("&");
             for (var i = 0; i < vars.length; i++) {
-                var pair = vars[i].split('=');
-                if (pair[0] && pair[1]) { 
+                var pair = vars[i].split("=");
+                if (pair[0] && pair[1]) {
                     params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
                 }
             }
@@ -69,96 +157,103 @@
         }
 
         async function main() {
-            let templateId = '';
-            try {
-                document.getElementById('debug-info').innerText = 'กำลังเริ่มต้น LIFF...';
+            let templateId = "";
+            const loading = document.getElementById("loading-overlay");
+            const debug = document.getElementById("debug-info");
 
-                // 1. เริ่มต้น (Initialize) LIFF
+            try {
+                debug.innerText = "init LIFF...";
+
                 await liff.init({ liffId: LIFF_ID });
 
-                // 1.1 ต้องเปิดผ่านแอป LINE เท่านั้น
                 if (!liff.isInClient()) {
-                    const msg = 'ฟังก์ชันแชร์ใช้ได้เฉพาะเมื่อเปิดในแอป LINE เท่านั้น\nกรุณากลับไปเปิดลิงก์นี้จากในห้องแชท LINE ครับ';
-                    document.getElementById('debug-info').innerText = msg;
+                    loading.style.display = "none";
+                    const msg =
+                        "ฟังก์ชันแชร์ใช้ได้เฉพาะเมื่อเปิดในแอป LINE เท่านั้น\n" +
+                        "กรุณากลับไปเปิดลิงก์นี้จากในห้องแชท LINE ครับ";
+                    debug.innerText = msg;
                     customAlert(msg);
                     return;
                 }
 
-                // 1.2 ตรวจสอบว่า shareTargetPicker ใช้ได้ไหม
-                if (!liff.isApiAvailable('shareTargetPicker')) {
-                    const msg = 'อุปกรณ์หรือเวอร์ชัน LINE นี้ไม่รองรับ Share Target Picker\nกรุณาอัปเดตแอป LINE ให้เป็นเวอร์ชันล่าสุด แล้วลองใหม่อีกครั้งครับ';
-                    document.getElementById('debug-info').innerText = msg;
+                if (!liff.isApiAvailable("shareTargetPicker")) {
+                    loading.style.display = "none";
+                    const msg =
+                        "อุปกรณ์หรือเวอร์ชัน LINE นี้ไม่รองรับ Share Target Picker\n" +
+                        "กรุณาอัปเดตแอป LINE ให้เป็นเวอร์ชันล่าสุด แล้วลองใหม่อีกครั้งครับ";
+                    debug.innerText = msg;
                     customAlert(msg);
                     return;
                 }
 
-                // 2. ดึง Template ID จาก URL (นี่คือ 'กุญแจ' ที่ GAS ส่งมา)
-                var params = getQueryParams();
-                templateId = params.templateId || ''; // ใช้ Key: templateId
+                const params = getQueryParams();
+                templateId = params.templateId || "";
 
                 if (!templateId) {
-                    throw new Error('ไม่พบ Template ID ใน URL (templateId=...)');
+                    throw new Error("ไม่พบ Template ID ใน URL (templateId=...)");
                 }
-                
-                document.getElementById('debug-info').innerText = `Template ID ที่รับได้: ${templateId}\nกำลังดึง Flex JSON จาก Server...`;
 
-                // 3. เรียก GAS Server เพื่อดึง Flex JSON
-                const fetchUrl = `${GAS_WEB_APP_URL}?action=getTemplateFlex&templateId=${encodeURIComponent(templateId)}`;
+                debug.innerText = "fetch flex from GAS...";
+
+                const fetchUrl =
+                    `${GAS_WEB_APP_URL}?action=getTemplateFlex&templateId=` +
+                    encodeURIComponent(templateId);
                 const response = await fetch(fetchUrl);
 
-                // ตรวจสอบ HTTP Error
                 if (!response.ok) {
-                    const errorText = await response.text(); 
-                    throw new Error(`GAS API Error: HTTP ${response.status}\nDetails: ${errorText.substring(0,200)}`);
+                    const errorText = await response.text();
+                    throw new Error(
+                        `GAS API Error: HTTP ${response.status}\nDetails: ${errorText.substring(
+                            0,
+                            200
+                        )}`
+                    );
                 }
 
-                // 4. รับ Flex JSON ทั้งก้อนกลับมา
-                const responseData = await response.json(); 
+                const responseData = await response.json();
 
                 if (responseData.error) {
-                    throw new Error(responseData.error); // Error จาก GAS Server
+                    throw new Error(responseData.error);
                 }
                 if (!responseData.contents) {
-                    throw new Error('ไม่พบโค้ด Flex Message (contents) ใน Template ID นี้');
+                    throw new Error(
+                        "ไม่พบโค้ด Flex Message (contents) ใน Template ID นี้"
+                    );
                 }
-                
-                // 5. สร้าง Flex Message สำหรับ Share Target Picker
+
                 const finalFlexMessage = {
                     type: "flex",
                     altText: responseData.altText || "Flex Message for Sharing",
-                    contents: responseData.contents
+                    contents: responseData.contents,
                 };
 
-                document.getElementById('debug-info').innerText = `ดึงข้อมูลสำเร็จ!\nกำลังเปิดหน้าต่างแชร์...`;
+                debug.innerText = "open shareTargetPicker...";
 
-                // 6. เรียกใช้ Share Target Picker
                 const result = await liff.shareTargetPicker([finalFlexMessage]);
 
-                // ถ้าผู้ใช้กดปิดโดยไม่แชร์ result จะเป็น null
                 if (result === null) {
+                    // user ปิดโดยไม่แชร์
+                    loading.style.display = "none";
                     customAlert("ปิดหน้าต่างแชร์โดยไม่ได้ส่งข้อความครับ");
-                    // กรณีนี้จะปิดหน้าต่างให้เลย
                     liff.closeWindow();
                     return;
                 }
 
-                // 7. แชร์สำเร็จ
+                // แชร์สำเร็จ
+                loading.style.display = "none";
                 customAlert("แชร์ข้อความสำเร็จแล้ว!");
-                // ปิดหน้าต่างหลังจาก alert ถูกกดปิดสักพักเล็กน้อย
                 setTimeout(() => {
                     liff.closeWindow();
                 }, 500);
-
             } catch (error) {
                 console.error("เกิดข้อผิดพลาดในการทำงานของ LIFF:", error);
+                loading.style.display = "none";
                 const msg = `❌ เกิดข้อผิดพลาด:\n${error.message || error}`;
-                document.getElementById('debug-info').innerText = msg;
+                debug.innerText = msg;
                 customAlert(msg);
-                // ❗ ไม่ปิดหน้าต่างทันที จะได้เห็น error / debug-info ชัด ๆ
             }
         }
 
-        // เริ่มต้น
         main();
     </script>
 </body>
